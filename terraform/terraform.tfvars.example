@@ -1,0 +1,5 @@
+aws_region        = "ap-south-1"
+availability_zone = "ap-south-1a"
+admin_ip          = "REPLACE_WITH_CURRENT_PUBLIC_IPV4"
+key_name          = "mern-assignment-key"
+instance_type     = "t3.micro"

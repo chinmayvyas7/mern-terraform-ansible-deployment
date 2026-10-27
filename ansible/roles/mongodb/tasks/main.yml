@@ -1,0 +1,79 @@
+---
+- name: Install MongoDB repository prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Download the MongoDB signing key
+  ansible.builtin.get_url:
+    url: "https://pgp.mongodb.com/server-{{ mongo_major_version }}.asc"
+    dest: "/tmp/mongodb-server-{{ mongo_major_version }}.asc"
+    mode: '0644'
+
+- name: Install the MongoDB signing key
+  ansible.builtin.command:
+    cmd: "gpg --dearmor --yes -o /usr/share/keyrings/mongodb-server-{{ mongo_major_version }}.gpg /tmp/mongodb-server-{{ mongo_major_version }}.asc"
+    creates: "/usr/share/keyrings/mongodb-server-{{ mongo_major_version }}.gpg"
+
+- name: Add the official MongoDB APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [ arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-{{ mongo_major_version }}.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/{{ mongo_major_version }} multiverse"
+    filename: mongodb-org-{{ mongo_major_version }}
+    state: present
+    update_cache: true
+
+- name: Install MongoDB server and shell
+  ansible.builtin.apt:
+    name:
+      - mongodb-org
+      - mongodb-mongosh
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Bind MongoDB to loopback and the private interface and enable authorization
+  ansible.builtin.template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart mongod
+
+- name: Start MongoDB
+  ansible.builtin.service:
+    name: mongod
+    state: started
+    enabled: true
+
+- name: Restart MongoDB if configuration changed before user setup
+  ansible.builtin.meta: flush_handlers
+
+- name: Reconcile MongoDB administrator and application users
+  block:
+    - name: Install the temporary user reconciliation script
+      ansible.builtin.template:
+        src: ensure_users.js.j2
+        dest: /root/ensure-travelmemory-users.js
+        owner: root
+        group: root
+        mode: '0600'
+      no_log: true
+
+    - name: Create or verify MongoDB users
+      ansible.builtin.command:
+        cmd: mongosh --quiet --file /root/ensure-travelmemory-users.js
+      register: mongo_user_setup
+      changed_when: "'TRAVELMEMORY_USERS_UPDATED' in mongo_user_setup.stdout"
+      
+  always:
+    - name: Remove the temporary secret-bearing MongoDB script
+      ansible.builtin.file:
+        path: /root/ensure-travelmemory-users.js
+        state: absent
+      no_log: true
