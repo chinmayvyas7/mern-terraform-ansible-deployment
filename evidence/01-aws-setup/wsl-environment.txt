@@ -1,0 +1,22 @@
+===== DATE =====
+Mon Oct 26 10:08:11 UTC 2026
+===== PROJECT DIRECTORY =====
+/mnt/d/HeroV/Assignments/Terraform and Ansible/MERN-Terraform-Ansible
+===== PYTHON =====
+Python 3.12.3
+===== GIT =====
+git version 2.43.0
+===== ANSIBLE =====
+ansible [core 2.16.3]
+  config file = None
+  configured module search path = ['/home/chinmay/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/lib/python3/dist-packages/ansible
+  ansible collection location = /home/chinmay/.ansible/collections:/usr/share/ansible/collections
+  executable location = /usr/bin/ansible
+  python version = 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0] (/usr/bin/python3)
+  jinja version = 3.1.2
+  libyaml = True
+===== TERRAFORM FILES =====
+total 0
+drwxrwxrwx 1 chinmay chinmay 4096 Oct 26 05:05 .
+drwxrwxrwx 1 chinmay chinmay 4096 Oct 26 05:05 ..

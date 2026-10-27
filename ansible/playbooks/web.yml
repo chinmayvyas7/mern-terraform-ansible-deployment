@@ -1,0 +1,9 @@
+---
+- name: Deploy the TravelMemory API and React frontend
+  hosts: web
+  become: true
+  roles:
+    - web
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/all/vault.yml

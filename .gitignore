@@ -1,0 +1,44 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+terraform.tfvars
+*.env
+!.env.example
+!*.env.example
+*.pem
+*.key
+*.retry
+node_modules/
+build/
+ansible/inventory/hosts.ini
+ansible/group_vars/all/vault.yml
+ansible/vault-password-file
+*.vault-pass
+
+# Nested upstream repository metadata
+/app/.git
+
+# Generated application dependencies and builds
+/app/frontend/node_modules/
+/app/frontend/build/
+/app/backend/node_modules/
+
+# Terraform generated files and local state
+/terraform/.terraform/
+/terraform/*.tfstate
+/terraform/*.tfstate.*
+/terraform/*.tfplan
+/terraform/terraform.tfvars
+
+# Ansible secrets and local inventory
+/ansible/group_vars/all/vault.yml
+/ansible/inventory/hosts.ini
+/ansible/vault-password-file
+/ansible/*.retry
+
+# Private keys and credentials
+*.pem
+*.key
+*.vault-pass

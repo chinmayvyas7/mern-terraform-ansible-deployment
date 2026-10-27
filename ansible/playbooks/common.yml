@@ -1,0 +1,6 @@
+---
+- name: Harden Ubuntu hosts and configure host firewall
+  hosts: all
+  become: true
+  roles:
+    - common
