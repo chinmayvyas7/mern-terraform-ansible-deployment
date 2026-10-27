@@ -67,6 +67,7 @@ export default function AddExperience() {
   const [imageMode, setImageMode] = useState("upload");
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const safePreview = preview && preview.startsWith("blob:") ? preview : null;
 
   useEffect(() => {
     if (!file) return setPreview(null);
@@ -221,9 +222,9 @@ export default function AddExperience() {
                 <Field id="image" label="Photo" error={errors.image} hint={`JPEG, PNG, GIF or WEBP, up to ${MAX_IMAGE_MB} MB.`}>
                   <input ref={fileInput} type="file" className={inputClass("image")} id="image"
                     accept={ALLOWED_IMAGE_TYPES.join(",")} onChange={onFileChange} />
-                  {preview && !errors.image && (
+                  {safePreview && !errors.image && (
                     <div className="tm-preview mt-3">
-                      <img src={preview} alt="Selected cover preview" />
+                      <p className="mb-2">Image selected: {file?.name}</p>
                       <button type="button" className="btn btn-sm btn-light tm-preview__remove" onClick={clearFile} aria-label="Remove image">
                         ✕
                       </button>
