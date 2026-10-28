@@ -1,0 +1,9 @@
+app_repository: https://github.com/UnpredictablePrashant/TravelMemory.git
+app_revision: dea21e3390cf6b957d4549de87c0e6ad4bdd7539
+app_root: /opt/travelmemory
+app_upload_dir: /var/lib/travelmemory/uploads
+node_major_version: 22
+mongo_major_version: '8.0'
+mongo_admin_username: travelmemory_admin
+mongo_application_username: travelmemory_app
+mongo_database_name: travelmemory

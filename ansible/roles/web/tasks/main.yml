@@ -1,0 +1,200 @@
+---
+- name: Install web runtime prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - git
+      - gnupg
+      - nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Download the NodeSource repository signing key
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /tmp/nodesource-repo.gpg.key
+    mode: '0644'
+
+- name: Install the NodeSource repository signing key
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes -o /usr/share/keyrings/nodesource.gpg /tmp/nodesource-repo.gpg.key
+    creates: /usr/share/keyrings/nodesource.gpg
+
+- name: Add the Node.js APT repository
+  ansible.builtin.apt_repository:
+    repo: 'deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main'
+    filename: nodesource
+    state: present
+    update_cache: true
+
+- name: Install Node.js and npm
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create an unprivileged application service account
+  ansible.builtin.user:
+    name: travelmemory
+    system: true
+    home: /var/lib/travelmemory
+    create_home: true
+    shell: /usr/sbin/nologin
+
+- name: Check for the application build swap file
+  ansible.builtin.stat:
+    path: /swapfile
+  register: app_swapfile
+
+- name: Allocate 2 GiB of build swap on the encrypted root volume
+  ansible.builtin.command:
+    cmd: fallocate -l 2G /swapfile
+    creates: /swapfile
+  when: not app_swapfile.stat.exists
+
+- name: Set swap file permissions
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: '0600'
+  when: not app_swapfile.stat.exists
+
+- name: Initialize swap file
+  ansible.builtin.command:
+    cmd: mkswap /swapfile
+  when: not app_swapfile.stat.exists
+
+- name: Enable swap for this boot if the host has no active swap
+  ansible.builtin.command:
+    cmd: swapon /swapfile
+  when: ansible_swaptotal_mb | int == 0
+  changed_when: true
+
+- name: Persist build swap across reboots
+  ansible.builtin.mount:
+    src: /swapfile
+    path: none
+    fstype: swap
+    opts: sw
+    state: present
+
+- name: Create persistent upload directory
+  ansible.builtin.file:
+    path: '{{ app_upload_dir }}'
+    state: directory
+    owner: travelmemory
+    group: travelmemory
+    mode: '0750'
+
+- name: Create application checkout directory for the service account
+  ansible.builtin.file:
+    path: '{{ app_root }}'
+    state: directory
+    owner: travelmemory
+    group: travelmemory
+    mode: '0755'
+
+- name: Check out the application source
+  ansible.builtin.git:
+    repo: '{{ app_repository }}'
+    dest: '{{ app_root }}'
+    version: '{{ app_revision }}'
+    update: true
+    force: false
+  become_user: travelmemory
+  register: app_checkout
+
+- name: Check whether a production frontend build exists
+  ansible.builtin.stat:
+    path: '{{ app_root }}/frontend/build/index.html'
+  register: frontend_build
+
+- name: Install backend production dependencies
+  ansible.builtin.command:
+    cmd: npm ci --omit=dev
+    chdir: '{{ app_root }}/backend'
+  become_user: travelmemory
+  when: app_checkout.changed or not frontend_build.stat.exists
+
+- name: Install frontend dependencies
+  ansible.builtin.command:
+    cmd: npm ci --no-audit --no-fund
+    chdir: '{{ app_root }}/frontend'
+  become_user: travelmemory
+  environment:
+    REACT_APP_BACKEND_URL: /
+    NODE_OPTIONS: --max-old-space-size=768
+  when: app_checkout.changed or not frontend_build.stat.exists
+
+- name: Build the React production bundle with same-origin API URLs
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: '{{ app_root }}/frontend'
+  become_user: travelmemory
+  environment:
+    REACT_APP_BACKEND_URL: /
+    NODE_OPTIONS: --max-old-space-size=768
+  when: app_checkout.changed or not frontend_build.stat.exists
+
+- name: Install backend environment without showing credentials
+  ansible.builtin.template:
+    src: backend.env.j2
+    dest: '{{ app_root }}/backend/.env'
+    owner: root
+    group: travelmemory
+    mode: '0640'
+  notify: restart travelmemory-api
+  no_log: true
+
+- name: Install the systemd service for the Express backend
+  ansible.builtin.template:
+    src: travelmemory-api.service.j2
+    dest: /etc/systemd/system/travelmemory-api.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart travelmemory-api
+
+- name: Enable and start the backend service
+  ansible.builtin.systemd:
+    name: travelmemory-api
+    daemon_reload: true
+    enabled: true
+    state: started
+
+- name: Install the Nginx site configuration
+  ansible.builtin.template:
+    src: travelmemory-nginx.conf.j2
+    dest: /etc/nginx/sites-available/travelmemory
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload nginx
+
+- name: Enable the TravelMemory Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/travelmemory
+    dest: /etc/nginx/sites-enabled/travelmemory
+    state: link
+  notify: reload nginx
+
+- name: Remove the default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Validate Nginx configuration before starting it
+  ansible.builtin.command:
+    cmd: nginx -t
+  changed_when: false
+
+- name: Ensure Nginx is enabled and running
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

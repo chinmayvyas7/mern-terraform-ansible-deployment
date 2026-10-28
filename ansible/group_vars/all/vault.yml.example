@@ -1,0 +1,4 @@
+# Copy to vault.yml, replace these values, then encrypt the file with ansible-vault.
+# Never put the real vault.yml or its password in Git.
+mongo_admin_password: REPLACE_WITH_A_LONG_RANDOM_ADMIN_PASSWORD
+mongo_application_password: REPLACE_WITH_A_DIFFERENT_LONG_RANDOM_APP_PASSWORD
