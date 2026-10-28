@@ -1,0 +1,47 @@
+const adminUser = {{ mongo_admin_username | to_json }};
+const adminPassword = {{ mongo_admin_password | to_json }};
+const appUser = {{ mongo_application_username | to_json }};
+const appPassword = {{ mongo_application_password | to_json }};
+const adminDb = db.getSiblingDB('admin');
+
+let authenticated = false;
+try {
+  const authResult = adminDb.auth({ user: adminUser, pwd: adminPassword });
+    authenticated = authResult === 1 || (authResult && authResult.ok === 1);
+} catch (_) {
+  authenticated = false;
+}
+
+if (!authenticated) {
+  try {
+    adminDb.createUser({ user: adminUser, pwd: adminPassword, roles: [{ role: 'root', db: 'admin' }] });
+    authenticated = adminDb.auth({ user: adminUser, pwd: adminPassword }) === 1;
+  } catch (_) {
+    throw new Error('MongoDB administrator setup failed; check encrypted credentials and existing database users.');
+  }
+}
+
+if (!authenticated) {
+  throw new Error('MongoDB administrator authentication failed.');
+}
+
+const appDb = db.getSiblingDB({{ mongo_database_name | to_json }});
+const existing = appDb.getUser(appUser);
+let appCredentialsWork = false;
+try {
+  const appConnection = new Mongo('mongodb://' + encodeURIComponent(appUser) + ':' + encodeURIComponent(appPassword) + '@127.0.0.1:27017/{{ mongo_database_name }}?authSource={{ mongo_database_name }}');
+  appCredentialsWork = appConnection.getDB({{ mongo_database_name | to_json }}).runCommand({ ping: 1 }).ok === 1;
+} catch (_) {
+  appCredentialsWork = false;
+}
+
+if (!appCredentialsWork) {
+  if (existing) {
+    appDb.updateUser(appUser, { pwd: appPassword, roles: [{ role: 'readWrite', db: {{ mongo_database_name | to_json }} }] });
+  } else {
+    appDb.createUser({ user: appUser, pwd: appPassword, roles: [{ role: 'readWrite', db: {{ mongo_database_name | to_json }} }] });
+  }
+  print('TRAVELMEMORY_USERS_UPDATED');
+} else {
+  print('TRAVELMEMORY_USERS_UNCHANGED');
+}

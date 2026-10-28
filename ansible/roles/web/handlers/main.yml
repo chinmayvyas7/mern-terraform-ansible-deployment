@@ -1,0 +1,10 @@
+---
+- name: restart travelmemory-api
+  ansible.builtin.service:
+    name: travelmemory-api
+    state: restarted
+
+- name: reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

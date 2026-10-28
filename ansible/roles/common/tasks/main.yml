@@ -1,0 +1,61 @@
+---
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Allow SSH before enabling the firewall
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: Set default inbound policy
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set default outbound policy
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow public web traffic on the web host
+  community.general.ufw:
+    rule: allow
+    port: '{{ item }}'
+    proto: tcp
+  loop:
+    - '80'
+    - '443'
+  when: "'web' in group_names"
+
+- name: Allow database traffic from the web host
+  community.general.ufw:
+    rule: allow
+    port: '27017'
+    proto: tcp
+    from_ip: "{{ hostvars[groups['web'][0]].ansible_private_ip }}"
+  when: "'database' in group_names"
+
+- name: Enable UFW after allowing required traffic
+  community.general.ufw:
+    state: enabled
+
+- name: Disable root SSH and password authentication
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-assignment-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+  notify: restart ssh
+
+- name: Validate the resulting SSH daemon configuration before restarting it
+  ansible.builtin.command:
+    cmd: /usr/sbin/sshd -t
+  changed_when: false

@@ -1,0 +1,9 @@
+﻿------------------------------
+|  DescribeAvailabilityZones |
++--------------+-------------+
+|     Name     |    State    |
++--------------+-------------+
+|  ap-south-1a |  available  |
+|  ap-south-1b |  available  |
+|  ap-south-1c |  available  |
++--------------+-------------+
